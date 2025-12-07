@@ -1,0 +1,134 @@
+# Check for root privileges
+if [ "$UID" -ne 0 ]; then
+    echo "🚨 ERROR: This script must be run as root or with sudo."
+    echo "Usage: sudo ./user_backup_manager.sh"
+    exit 1
+fi
+
+echo "Root check successful. Starting User/Backup Manager..."
+# Function to list users (excluding system accounts)
+list_users() {
+    echo "--- Active User Accounts ---"
+    # Print the 'Username' field from the /etc/passwd file (field 1, delimited by :)
+    # We filter out users with UID less than 1000, as these are typically system accounts.
+    cat /etc/passwd | awk -F: '$3 >= 1000 {print $1}'
+    echo "----------------------------"
+    echo "Press Enter to continue..."
+    read -r
+}
+
+# Function to create a new user account
+create_user() {
+    echo "--- Create New User Account ---"
+    
+    # 1. Prompt for username
+    read -p "Enter username for new account: " USERNAME
+    
+    # 2. Input Validation (check if input is empty)
+    if [ -z "$USERNAME" ]; then
+        echo "❌ Error: Username cannot be empty."
+        return
+    fi
+
+    # 3. Check if user already exists
+    if id "$USERNAME" &>/dev/null; then
+        echo "❌ Error: User '$USERNAME' already exists. Aborting."
+        return
+    fi
+    
+    # 4. Create the user and set password (using useradd and passwd)
+    # -m: creates the home directory for the user
+    # -s /bin/bash: sets the default shell to Bash
+    echo "Creating user '$USERNAME'..."
+    useradd -m -s /bin/bash "$USERNAME"
+
+    # Check the exit status of useradd command
+    if [ $? -eq 0 ]; then
+        echo "✅ User '$USERNAME' created successfully."
+        # Force set password immediately
+        passwd "$USERNAME"
+        echo "Password for '$USERNAME' set."
+    else
+        echo "❌ Error: Failed to create user '$USERNAME'. Check system logs."
+    fi
+    echo "Press Enter to continue..."
+    read -r
+}
+
+
+# Sub-Menu Display for User Management
+user_management_menu() {
+    while true; do
+        clear
+        echo "========================================="
+        echo "👤 USER MANAGEMENT"
+        echo "========================================="
+        echo "1) Create a New User"
+        echo "2) Delete an Existing User"
+        echo "3) List All Users"
+        echo "4) ↩️ Back to Main Menu"
+        echo "-----------------------------------------"
+        echo -n "Enter your choice [1-4]: "
+        read user_choice
+
+        case "$user_choice" in
+            1)
+                create_user
+                ;;
+            2)
+                # delete_user function will go here next
+                echo "Feature coming soon: Delete User"
+                sleep 2
+                ;;
+            3)
+                list_users 
+                ;;
+            4)
+                return # Exits this function, returning to the main menu
+                ;;
+            *)
+                echo "⚠️ Invalid choice. Please select 1, 2, 3, or 4."
+                sleep 2
+                ;;
+        esac
+    done
+}
+
+
+# --- Main Menu Function ---
+show_menu() {
+    clear
+    echo "========================================="
+    echo "📜 Shell Script User/Backup Manager"
+    echo "========================================="
+    echo "1) 👤 User Management"
+    echo "2) 💾 System Backup"
+    echo "3) 🚪 Exit Script"
+    echo "-----------------------------------------"
+    echo -n "Enter your choice [1-3]: "
+}
+
+# --- Main Logic Loop ---
+while true; do
+    show_menu
+    read choice
+
+    case "$choice" in
+        1)
+            user_management_menu
+	    ;;
+        2)
+            # Placeholder: Will call the backup_function function later
+            echo "Starting System Backup..."
+            sleep 2
+            ;;
+        3)
+            echo "Exiting Script. Goodbye!"
+            exit 0
+            ;;
+        *)
+            echo "⚠️ Invalid choice. Please select 1, 2, or 3."
+            sleep 2
+            ;;
+    esac
+done

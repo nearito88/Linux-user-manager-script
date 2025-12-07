@@ -81,6 +81,63 @@ create_user() {
     read -r
 }
 
+# Function to modify an existing user's attributes
+modify_user() {
+    echo "--- Modify User Account ---"
+    read -p "Enter username to modify: " USERNAME
+
+    # Input Validation and Existence Check
+    if ! getent passwd "$USERNAME" > /dev/null; then
+        echo "❌ Error: User '$USERNAME' does not exist."
+        read -r
+        return
+    fi
+
+    while true; do
+        clear
+        echo "========================================="
+        echo "⚙️ MODIFY USER: $USERNAME"
+        echo "========================================="
+        echo "1) Change User Shell (e.g., /bin/bash)"
+        echo "2) Lock Account (Disable Login)"
+        echo "3) Unlock Account (Enable Login)"
+        echo "4) ↩️ Back to User Management"
+        echo "-----------------------------------------"
+        echo -n "Enter your choice [1-4]: "
+        read mod_choice
+
+        case "$mod_choice" in
+            1)
+                read -p "Enter new shell path (e.g., /bin/sh or /bin/bash): " NEW_SHELL
+                usermod -s "$NEW_SHELL" "$USERNAME"
+                if [ $? -eq 0 ]; then
+                    echo "✅ Shell for $USERNAME changed to $NEW_SHELL."
+                else
+                    echo "❌ Failed to change shell."
+                fi
+                sleep 2
+                ;;
+            2)
+                usermod -L "$USERNAME" # -L locks the account
+                echo "✅ User $USERNAME account has been LOCKED (disabled)."
+                sleep 2
+                ;;
+            3)
+                usermod -U "$USERNAME" # -U unlocks the account
+                echo "✅ User $USERNAME account has been UNLOCKED (enabled)."
+                sleep 2
+                ;;
+            4)
+                return
+                ;;
+            *)
+                echo "⚠️ Invalid choice."
+                sleep 2
+                ;;
+        esac
+    done
+}
+
 # Function to delete an existing user account
 delete_user() {
     echo "--- Delete User Account ---"
@@ -175,6 +232,63 @@ system_backup() {
 }
 
 
+# Function to create a new group
+create_group() {
+    echo "--- Create New Group ---"
+    read -p "Enter new group name: " GROUPNAME
+    groupadd "$GROUPNAME"
+    if [ $? -eq 0 ]; then
+        echo "✅ Group '$GROUPNAME' created successfully."
+    else
+        echo "❌ Failed to create group."
+    fi
+    echo "Press Enter to continue..."
+    read -r
+}
+
+# Function to delete a group
+delete_group() {
+    echo "--- Delete Group ---"
+    read -p "Enter group name to delete: " GROUPNAME
+    groupdel "$GROUPNAME"
+    if [ $? -eq 0 ]; then
+        echo "✅ Group '$GROUPNAME' deleted successfully."
+    else
+        echo "❌ Failed to delete group. Ensure no primary users belong to it."
+    fi
+    echo "Press Enter to continue..."
+    read -r
+}
+
+# Function to add a user to an existing group
+add_user_to_group() {
+    echo "--- Add User to Group ---"
+    read -p "Enter username: " USERNAME
+    read -p "Enter group name: " GROUPNAME
+
+    # Check if user and group exist before adding
+    if ! getent passwd "$USERNAME" > /dev/null; then
+        echo "❌ Error: User '$USERNAME' does not exist."
+        read -r
+        return
+    fi
+    if ! getent group "$GROUPNAME" > /dev/null; then
+        echo "❌ Error: Group '$GROUPNAME' does not exist."
+        read -r
+        return
+    fi
+    
+    usermod -aG "$GROUPNAME" "$USERNAME" # -aG appends user to supplementary group
+    if [ $? -eq 0 ]; then
+        echo "✅ User '$USERNAME' added to group '$GROUPNAME' successfully."
+    else
+        echo "❌ Failed to add user to group."
+    fi
+    echo "Press Enter to continue..."
+    read -r
+}
+
+
 # =========================================================================
 # 4. MENU STRUCTURES
 # =========================================================================
@@ -187,11 +301,12 @@ user_management_menu() {
         echo "👤 USER MANAGEMENT"
         echo "========================================="
         echo "1) Create a New User"
-        echo "2) Delete an Existing User"
-        echo "3) List All Users"
-        echo "4) ↩️ Back to Main Menu"
+	echo "2) Modify an Existing User"
+        echo "3) Delete an Existing User"
+        echo "4) List All Users"
+        echo "5) ↩️ Back to Main Menu"
         echo "-----------------------------------------"
-        echo -n "Enter your choice [1-4]: "
+        echo -n "Enter your choice [1-5]: "
         read user_choice
 
         case "$user_choice" in
@@ -199,10 +314,50 @@ user_management_menu() {
                 create_user
                 ;;
             2)
-                delete_user
+                modify_user
                 ;;
             3)
+                delete_user
+                ;;
+            4)
                 list_users
+                ;;
+            5)
+                return # Exits this function, returning to the main menu
+                ;;
+            *)
+                echo "⚠️ Invalid choice. Please select 1, 2, 3, or 4."
+                sleep 2
+                ;;
+        esac
+    done
+}
+
+
+# Sub-Menu Display for Group Management
+manage_groups_menu() {
+    while true; do
+        clear
+        echo "========================================="
+        echo "👥 GROUP MANAGEMENT"
+        echo "========================================="
+        echo "1) Create New Group"
+        echo "2) Delete Group"
+        echo "3) Add User to Group"
+        echo "4) ↩️ Back to Main Menu"
+        echo "-----------------------------------------"
+        echo -n "Enter your choice [1-4]: "
+        read group_choice
+
+        case "$group_choice" in
+            1)
+                create_group
+                ;;
+            2)
+                delete_group
+                ;;
+            3)
+                add_user_to_group
                 ;;
             4)
                 return # Exits this function, returning to the main menu
@@ -215,6 +370,7 @@ user_management_menu() {
     done
 }
 
+
 # Main Menu Display
 show_menu() {
     clear
@@ -222,10 +378,11 @@ show_menu() {
     echo "📜 Shell Script User/Backup Manager"
     echo "========================================="
     echo "1) 👤 User Management"
+    echo "2) 👥 Group Management"
     echo "2) 💾 System Backup"
     echo "3) 🚪 Exit Script"
     echo "-----------------------------------------"
-    echo -n "Enter your choice [1-3]: "
+    echo -n "Enter your choice [1-4]: "
 }
 
 # =========================================================================
@@ -241,9 +398,12 @@ while true; do
             user_management_menu
             ;;
         2)
-            system_backup
+            manage_groups_menu
             ;;
         3)
+            system_backup
+            ;;
+        4)
             echo "Exiting Script. Goodbye!"
             exit 0
             ;;
